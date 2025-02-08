@@ -1,14 +1,15 @@
-// script.js
-
 let scene, camera, renderer, controls;
-let floorMesh = null;         // Will hold our floor mesh
-let furnitureToPlace = null;  // Holds the GLTF scene awaiting placement
+let floorMesh = null;         
+let furnitureToPlace = null;  
+let currentDraggedModel = null;
+let activeFurniture = null;
+let selectedFurniture = null;
 
 function init() {
-  // 1. Create scene
+  // Create scene
   scene = new THREE.Scene();
   
-  // 2. Create camera (PerspectiveCamera: fov, aspect, near, far)
+  // Create camera (PerspectiveCamera: fov, aspect, near, far)
   const fov = 60;
   const aspect = window.innerWidth / window.innerHeight;
   const near = 0.1;
@@ -16,7 +17,7 @@ function init() {
   camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
   camera.position.set(0, 5, 10); // Adjust as needed
 
-  // 3. Create renderer
+  // Create renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -24,7 +25,7 @@ function init() {
   const container = document.getElementById('canvas-container');
   container.appendChild(renderer.domElement);
 
-  // 4. Add basic lighting
+  // Add basic lighting
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
   scene.add(ambientLight);
   
@@ -32,21 +33,105 @@ function init() {
   directionalLight.position.set(5, 10, 7);
   scene.add(directionalLight);
 
-  // 5. Add OrbitControls for camera
+  // Add OrbitControls for camera
   controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.minDistance = 1;   // Keep the camera from zooming in too close
   controls.maxDistance = 50;  // Limit the max zoom-out distance
 
-  // 6. Create or load a floor for raycasting
+  // Create or load a floor for raycasting
   createFloorMesh(); 
   // or if you have a scanned room, call loadRoomModel(); then set floorMesh to that portion of the scene.
 
-  // 7. Listen for user clicks to place furniture
+  // Listen for user clicks to place furniture
   document.addEventListener('click', onDocumentClick, false);
 
-  // 8. Start the animation loop
+  // Initialize drag-and-drop for furniture items
+  initDragAndDrop();
+
+  makeObjectsSelectable();
+
+  handleResize();
+
+  // Start the animation loop
   animate();
 }
+
+function initDragAndDrop() {
+  const furnitureItems = document.querySelectorAll('.furniture-item');
+  const canvasContainer = document.getElementById('canvas-container');
+
+  furnitureItems.forEach(item => {
+      item.addEventListener('dragstart', (e) => {
+          currentDraggedModel = item.dataset.model;
+      });
+  });
+
+  canvasContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+  });
+
+  canvasContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (currentDraggedModel) {
+          const rect = canvasContainer.getBoundingClientRect();
+          const mouse = new THREE.Vector2(
+              ((e.clientX - rect.left) / canvasContainer.clientWidth) * 2 - 1,
+              -((e.clientY - rect.top) / canvasContainer.clientHeight) * 2 + 1
+          );
+
+          const raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(mouse, camera);
+          const intersects = raycaster.intersectObject(floorMesh, true);
+
+          if (intersects.length > 0) {
+              const point = intersects[0].point;
+              addFurniture(currentDraggedModel, point);
+          }
+      }
+  });
+}
+
+function makeObjectsSelectable() {
+  renderer.domElement.addEventListener('click', (event) => {
+      const mouse = new THREE.Vector2(
+          (event.clientX / window.innerWidth) * 2 - 1,
+          -(event.clientY / window.innerHeight) * 2 + 1
+      );
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+
+      // Get all objects in the scene except the floor
+      const objects = scene.children.filter(obj => obj !== floorMesh);
+      const intersects = raycaster.intersectObjects(objects, true);
+
+      if (intersects.length > 0) {
+          // Find the top-level parent of the intersected object
+          let object = intersects[0].object;
+          while (object.parent && object.parent !== scene) {
+              object = object.parent;
+          }
+          selectedFurniture = object;
+      } else {
+          selectedFurniture = null;
+      }
+  });
+}
+
+function handleResize() {
+  renderer.domElement.addEventListener('wheel', (event) => {
+      if (selectedFurniture) {
+          event.preventDefault();
+          
+          // Determine scaling factor based on wheel delta
+          const scaleFactor = event.deltaY > 0 ? 0.95 : 1.05;
+          
+          // Apply scaling to the selected furniture
+          selectedFurniture.scale.multiplyScalar(scaleFactor);
+      }
+  }, { passive: false });
+}
+
 
 // Example of creating a basic plane as our "floor"
 function createFloorMesh() {
@@ -73,19 +158,21 @@ function loadRoomModel() {
 */
 
 // Function to load a furniture model and store it for placement
-function addFurniture(modelPath) {
+function addFurniture(modelPath, position) {
   const loader = new THREE.GLTFLoader();
   loader.load(modelPath, (gltf) => {
-    furnitureToPlace = gltf.scene;
-    
-    furnitureToPlace.scale.set(0.5, 0.5, 0.5);
-    console.log(`${modelPath} loaded, ready to place.`);
+      const furniture = gltf.scene;
+      furniture.position.copy(position);
+      furniture.scale.set(0.5, 0.5, 0.5);
+      scene.add(furniture);
+      activeFurniture = furniture;
+      console.log(`${modelPath} placed at`, position);
   }, 
   undefined, 
   (error) => {
-    console.error(`Error loading model from ${modelPath}:`, error);
+      console.error(`Error loading model from ${modelPath}:`, error);
   });
-} 
+}
 
 // Raycasting handler for placing furniture on a click
 function onDocumentClick(event) {
@@ -127,6 +214,17 @@ function onDocumentClick(event) {
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
+
+  scene.traverse((object) => {
+    if (object.isMesh) {
+      if (object === selectedFurniture || object.parent === selectedFurniture) {
+        object.material.emissive = new THREE.Color(0x333333);
+      } else {
+        object.material.emissive = new THREE.Color(0x000000);
+      }
+    }
+  });
+  
   controls.update();
   renderer.render(scene, camera);
 }
