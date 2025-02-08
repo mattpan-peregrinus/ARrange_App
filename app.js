@@ -33,7 +33,7 @@ class ARFurnitureViewer {
       new FurnitureItem(
         "Modern Bookshelf",
         "./models/bookshelf.glb",
-        "./thumbnails/bookshelf.jpg",
+        "./thumbnails/bookshelf.png",
         { x: 0, y: 0, z: 0 }
       ),
       new FurnitureItem(
@@ -264,10 +264,13 @@ class ARFurnitureViewer {
 
       this.raycaster.setFromCamera(this.mouse, this.camera);
 
-      // Get all objects in the scene except the currently selected furniture
-      const objects = this.scene.children.filter(
-        (obj) => obj.type === "Group" && !this.placedFurniture.includes(obj)
-      );
+      // Get all objects in the scene including placed furniture
+      const objects = [
+        ...this.placedFurniture,
+        ...this.scene.children.filter(
+          (obj) => obj.type === "Group" && !this.placedFurniture.includes(obj)
+        ),
+      ];
 
       const intersects = this.raycaster.intersectObjects(objects, true);
 
@@ -275,13 +278,17 @@ class ARFurnitureViewer {
         const intersection = intersects[0];
         const normal = intersection.face.normal.clone();
         normal.transformDirection(intersection.object.matrixWorld);
-        const isWall = Math.abs(normal.y) < 0.5;
-        const position = intersection.point;
+
+        // Calculate position including height of the intersected object
+        const position = intersection.point.clone();
+
+        // If it's a horizontal surface (like a table top)
+        const isHorizontal = Math.abs(normal.y) > 0.5;
 
         this.loadFurniture(modelPath, {
           position: position,
           normal: normal,
-          isWall: isWall,
+          isWall: !isHorizontal,
         });
       }
     });
@@ -398,10 +405,9 @@ class ARFurnitureViewer {
         const center = bbox.getCenter(new THREE.Vector3());
         furniture.position.sub(center);
 
-        // Align furniture with the surface
+        // Position the furniture
         if (dropInfo.isWall) {
-          // For walls, align the back of the furniture with the wall
-          // and make it face outward from the wall
+          // Wall placement logic remains the same
           const rotationMatrix = new THREE.Matrix4();
           rotationMatrix.lookAt(
             new THREE.Vector3(),
@@ -410,15 +416,13 @@ class ARFurnitureViewer {
           );
           furniture.quaternion.setFromRotationMatrix(rotationMatrix);
 
-          // Move furniture slightly away from wall to prevent clipping
-          const offset = 0.01; // 1cm offset
+          const offset = 0.01;
           furniture.position
             .copy(dropInfo.position)
             .add(dropInfo.normal.multiplyScalar(offset));
         } else {
-          // For floor/horizontal surfaces, just place it on top
+          // Place directly at intersection point for stacking
           furniture.position.copy(dropInfo.position);
-          // Keep original rotation or align with room walls if needed
         }
 
         this.scene.add(furniture);
