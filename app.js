@@ -99,16 +99,25 @@ class ARFurnitureViewer {
   }
 
   loadRoomScan() {
-    // Remove the ground plane code and load the room model instead
     this.loader.load(
       "./models/room.glb",
       (gltf) => {
         const room = gltf.scene;
+
+        // Scale room to a standard size (assuming room should be about 5 units wide)
+        const bbox = new THREE.Box3().setFromObject(room);
+        const roomSize = bbox.getSize(new THREE.Vector3());
+        const desiredWidth = 5;
+        const scale = desiredWidth / roomSize.x;
+        room.scale.set(scale, scale, scale);
+
         this.scene.add(room);
         console.log("Room loaded successfully");
 
+        // Store room dimensions for future reference
+        this.roomDimensions = roomSize.multiplyScalar(scale);
+
         // Update the drag plane to match the room's floor
-        // Assuming the room model's floor is at y=0
         this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       },
       (progress) => {
@@ -205,7 +214,6 @@ class ARFurnitureViewer {
   }
 
   loadFurniture(furniturePath, position = { x: 0, y: 0, z: 0 }) {
-    // Remove previously selected furniture if it exists
     if (this.selectedFurniture) {
       this.scene.remove(this.selectedFurniture);
     }
@@ -214,11 +222,49 @@ class ARFurnitureViewer {
       furniturePath,
       (gltf) => {
         const furniture = gltf.scene;
-        furniture.position.set(position.x, position.y, position.z);
+
+        // Scale furniture to reasonable size relative to room
+        const bbox = new THREE.Box3().setFromObject(furniture);
+        const size = bbox.getSize(new THREE.Vector3());
+
+        // Define standard sizes for different furniture types (in meters)
+        const standardSizes = {
+          "bookshelf.glb": { width: 0.8, height: 2.0, depth: 0.4 },
+          "sofa.glb": { width: 2.0, height: 0.9, depth: 0.9 },
+          "table.glb": { width: 1.6, height: 0.75, depth: 0.9 },
+          "chair.glb": { width: 0.5, height: 0.9, depth: 0.5 },
+        };
+
+        // Get the filename from the path
+        const filename = furniturePath.split("/").pop();
+        const standardSize = standardSizes[filename] || {
+          width: 1,
+          height: 1,
+          depth: 1,
+        };
+
+        // Calculate scale factors for each dimension
+        const scaleX = standardSize.width / size.x;
+        const scaleY = standardSize.height / size.y;
+        const scaleZ = standardSize.depth / size.z;
+
+        // Use the minimum scale to maintain proportions
+        const scale = Math.min(scaleX, scaleY, scaleZ);
+        furniture.scale.set(scale, scale, scale);
+
+        // Center the pivot point
+        bbox.setFromObject(furniture);
+        const center = bbox.getCenter(new THREE.Vector3());
+        furniture.position.sub(center);
+
+        // Set the position
+        furniture.position.add(
+          new THREE.Vector3(position.x, position.y, position.z)
+        );
+
         this.scene.add(furniture);
         this.selectedFurniture = furniture;
 
-        // Add click-and-drag functionality
         this.setupFurnitureDrag(furniture);
       },
       (progress) => {
