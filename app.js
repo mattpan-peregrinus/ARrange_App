@@ -165,15 +165,30 @@ class ARFurnitureViewer {
       this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
       this.raycaster.setFromCamera(this.mouse, this.camera);
-      const intersectionPoint = new THREE.Vector3();
 
-      if (
-        this.raycaster.ray.intersectPlane(this.dragPlane, intersectionPoint)
-      ) {
+      // Get all objects in the scene except the currently selected furniture
+      const objects = this.scene.children.filter(
+        (obj) => obj !== this.selectedFurniture && obj.type === "Group" // GLTFLoader loads models as Groups
+      );
+
+      const intersects = this.raycaster.intersectObjects(objects, true);
+
+      if (intersects.length > 0) {
+        const intersection = intersects[0];
+        const normal = intersection.face.normal.clone();
+        // Transform the normal from local space to world space
+        normal.transformDirection(intersection.object.matrixWorld);
+
+        // Determine if this is a wall (vertical) or floor (horizontal)
+        const isWall = Math.abs(normal.y) < 0.5;
+
+        const position = intersection.point;
+
+        // Load the furniture with alignment information
         this.loadFurniture(modelPath, {
-          x: intersectionPoint.x,
-          y: 0,
-          z: intersectionPoint.z,
+          position: position,
+          normal: normal,
+          isWall: isWall,
         });
       }
     });
@@ -213,7 +228,14 @@ class ARFurnitureViewer {
     });
   }
 
-  loadFurniture(furniturePath, position = { x: 0, y: 0, z: 0 }) {
+  loadFurniture(
+    furniturePath,
+    dropInfo = {
+      position: new THREE.Vector3(),
+      normal: new THREE.Vector3(0, 1, 0),
+      isWall: false,
+    }
+  ) {
     if (this.selectedFurniture) {
       this.scene.remove(this.selectedFurniture);
     }
@@ -223,11 +245,10 @@ class ARFurnitureViewer {
       (gltf) => {
         const furniture = gltf.scene;
 
-        // Scale furniture to reasonable size relative to room
+        // Scale furniture as before
         const bbox = new THREE.Box3().setFromObject(furniture);
         const size = bbox.getSize(new THREE.Vector3());
 
-        // Define standard sizes for different furniture types (in meters)
         const standardSizes = {
           "bookshelf.glb": { width: 0.8, height: 2.0, depth: 0.4 },
           "sofa.glb": { width: 2.0, height: 0.9, depth: 0.9 },
@@ -235,7 +256,6 @@ class ARFurnitureViewer {
           "chair.glb": { width: 0.5, height: 0.9, depth: 0.5 },
         };
 
-        // Get the filename from the path
         const filename = furniturePath.split("/").pop();
         const standardSize = standardSizes[filename] || {
           width: 1,
@@ -243,12 +263,9 @@ class ARFurnitureViewer {
           depth: 1,
         };
 
-        // Calculate scale factors for each dimension
         const scaleX = standardSize.width / size.x;
         const scaleY = standardSize.height / size.y;
         const scaleZ = standardSize.depth / size.z;
-
-        // Use the minimum scale to maintain proportions
         const scale = Math.min(scaleX, scaleY, scaleZ);
         furniture.scale.set(scale, scale, scale);
 
@@ -257,14 +274,31 @@ class ARFurnitureViewer {
         const center = bbox.getCenter(new THREE.Vector3());
         furniture.position.sub(center);
 
-        // Set the position
-        furniture.position.add(
-          new THREE.Vector3(position.x, position.y, position.z)
-        );
+        // Align furniture with the surface
+        if (dropInfo.isWall) {
+          // For walls, align the back of the furniture with the wall
+          // and make it face outward from the wall
+          const rotationMatrix = new THREE.Matrix4();
+          rotationMatrix.lookAt(
+            new THREE.Vector3(),
+            dropInfo.normal,
+            new THREE.Vector3(0, 1, 0)
+          );
+          furniture.quaternion.setFromRotationMatrix(rotationMatrix);
+
+          // Move furniture slightly away from wall to prevent clipping
+          const offset = 0.01; // 1cm offset
+          furniture.position
+            .copy(dropInfo.position)
+            .add(dropInfo.normal.multiplyScalar(offset));
+        } else {
+          // For floor/horizontal surfaces, just place it on top
+          furniture.position.copy(dropInfo.position);
+          // Keep original rotation or align with room walls if needed
+        }
 
         this.scene.add(furniture);
         this.selectedFurniture = furniture;
-
         this.setupFurnitureDrag(furniture);
       },
       (progress) => {
