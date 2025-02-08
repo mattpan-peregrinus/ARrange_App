@@ -2,25 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>3D Room Visualization</title>
+  <title>3D Furniture Placement</title>
   <style>
-    /* Make the canvas fill the page */
     body, html {
       margin: 0;
       padding: 0;
-      overflow: hidden; /* optional, if you want a full-screen 3D canvas */
+      overflow: hidden;
     }
     #canvas-container {
       width: 100vw;
       height: 100vh;
       position: relative;
     }
+    /* Simple UI for furniture buttons */
+    #furniture-gallery {
+      position: absolute;
+      top: 10px; 
+      left: 10px; 
+      z-index: 999; 
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
   <div id="canvas-container"></div>
+  <div id="furniture-gallery">
+    <button onclick="addFurniture('models/sofa.glb')">Load Sofa</button>
+    <button onclick="addFurniture('models/chair.glb')">Load Chair</button>
+    <!-- Add more buttons for different furniture pieces -->
+  </div>
 
-  <!-- Three.js and supporting scripts from a CDN -->
+  <!-- Three.js and supporting loaders from a CDN -->
   <script src="https://cdn.jsdelivr.net/npm/three@latest/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/js/loaders/GLTFLoader.js"></script>
