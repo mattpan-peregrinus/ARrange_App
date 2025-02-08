@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>3D Room Visualization</title>
+  <style>
+    /* Make the canvas fill the page */
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden; /* optional, if you want a full-screen 3D canvas */
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <!-- Three.js and supporting scripts from a CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@latest/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/js/loaders/GLTFLoader.js"></script>
+
+  <!-- Our main script -->
+  <script src="script.js"></script>
+</body>
+</html>
