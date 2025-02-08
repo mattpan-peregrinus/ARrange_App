@@ -114,6 +114,11 @@ class ARFurnitureViewer {
     });
 
     this.init();
+
+    // Add save button handler
+    document
+      .getElementById("save-button")
+      .addEventListener("click", () => this.saveAndExit());
   }
 
   init() {
@@ -197,15 +202,18 @@ class ARFurnitureViewer {
   }
 
   loadRoomScan() {
+    const roomFile =
+      "./models/" + (localStorage.getItem("currentRoom") || "room1.glb");
+
     this.loader.load(
-      "./models/room.glb",
+      roomFile,
       (gltf) => {
         const room = gltf.scene;
 
-        // Scale room to a standard size (assuming room should be about 5 units wide)
+        // Scale room based on which room it is
         const bbox = new THREE.Box3().setFromObject(room);
         const roomSize = bbox.getSize(new THREE.Vector3());
-        const desiredWidth = 5;
+        const desiredWidth = roomFile.includes("room2.glb") ? 2.5 : 5; // Half size for room2
         const scale = desiredWidth / roomSize.x;
         room.scale.set(scale, scale, scale);
 
@@ -229,7 +237,7 @@ class ARFurnitureViewer {
         console.error("Error details:", {
           message: error.message,
           type: error.type,
-          url: "./models/room.glb",
+          url: roomFile,
         });
 
         // Fallback to a ground plane if room loading fails
@@ -575,6 +583,49 @@ class ARFurnitureViewer {
 
       this.scene.add(this.selectionBox);
     }
+  }
+
+  saveAndExit() {
+    // Create a save object with room data
+    const saveData = {
+      roomFile: localStorage.getItem("currentRoom") || "room.glb", // Get current room file
+      furniture: this.placedFurniture.map((furniture) => ({
+        modelPath: this.getFurnitureModelPath(furniture),
+        position: {
+          x: furniture.position.x,
+          y: furniture.position.y,
+          z: furniture.position.z,
+        },
+        rotation: {
+          y: furniture.rotation.y,
+        },
+        scale: {
+          x: furniture.scale.x,
+          y: furniture.scale.y,
+          z: furniture.scale.z,
+        },
+      })),
+    };
+
+    // Save to localStorage
+    const savedRooms = JSON.parse(localStorage.getItem("savedRooms") || "[]");
+    savedRooms.push(saveData);
+    localStorage.setItem("savedRooms", JSON.stringify(savedRooms));
+
+    // Navigate back to gallery page (which is now index.html)
+    window.location.href = "/index.html"; // Changed from gallery.html
+  }
+
+  getFurnitureModelPath(furniture) {
+    // Find the original furniture item that matches this placed furniture
+    for (const item of this.furnitureItems) {
+      // Compare the geometry to find matching furniture
+      const itemGeometry = new THREE.Box3().setFromObject(furniture);
+      if (Math.abs(itemGeometry.max.x - itemGeometry.min.x) === item.width) {
+        return item.modelPath;
+      }
+    }
+    return null;
   }
 }
 
