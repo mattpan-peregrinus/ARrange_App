@@ -1,133 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>3D Furniture Placement</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      display: flex;
-      font-family: Arial, sans-serif;
-    }
-    #canvas-container {
-      width: 66.66%; /* Two thirds of the screen */
-      height: 100vh;
-      position: relative;
-    }
-    #furniture-gallery {
-      width: 33.33%; /* One third of the screen */
-      height: 100vh;
-      position: relative;
-      background-color: #f5f5f5;
-      padding: 20px;
-      box-sizing: border-box;
-      overflow-y: auto;
-    }
-    .furniture-item {
-      width: 100px;
-      height: 100px;
-      margin: 10px;
-      padding: 10px;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      cursor: move;
-      text-align: center;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .furniture-item:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .furniture-item img {
-      max-width: 80px;
-      height: auto;
-    }
-    .furniture-item p {
-      margin: 5px 0;
-      font-size: 14px;
-      color: #333;
-    }
-    #size-controls {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      z-index: 1000;
-      display: none; /* Initially hidden */
-    }
-    #size-slider {
-      width: 200px;
-      margin-right: 10px;
-      -webkit-appearance: none;
-      height: 5px;
-      border-radius: 5px;
-      background: #ddd;
-      outline: none;
-    }
-    #size-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      background: #4CAF50;
-      cursor: pointer;
-    }
-    #confirm-placement {
-      padding: 8px 15px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background 0.2s;
-    }
-    #confirm-placement:hover {
-      background: #45a049;
-    }
-    .controls-label {
-      display: block;
-      margin-bottom: 5px;
-      color: #666;
-      font-size: 12px;
-    }
-  </style>
+    <title>AR Furniture Viewer</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #ar-overlay { position: fixed; width: 100%; height: 100%; }
+        
+        #furniture-gallery {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 200px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .furniture-item {
+            width: 100%;
+            margin-bottom: 15px;
+            cursor: pointer;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .furniture-item:hover {
+            transform: scale(1.05);
+        }
+
+        .furniture-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            user-select: none;
+            -webkit-user-drag: none;
+            -webkit-user-select: none;
+        }
+
+        .furniture-item h3 {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
-  <div id="canvas-container"></div>
-  
-  <div id="furniture-gallery">
-    <div class="furniture-item" draggable="true" data-model="models/chair.gltf">
-        <img src="icons/chair-icon.png" alt="Chair">
-        <p>Chair</p>
-    </div>
-    <div class="furniture-item" draggable="true" data-model="models/table.gltf">
-        <img src="icons/table-icon.png" alt="Table">
-        <p>Table</p>
-    </div>
-    <div class="furniture-item" draggable="true" data-model="models/bookshelf.gltf">
-        <img src="icons/bookshelf-icon.png" alt="Bookshelf">
-        <p>Bookshelf</p>
-    </div>
-  </div>
-
-  <div id="size-controls">
-    <span class="controls-label">Adjust Size</span>
-    <input type="range" id="size-slider" min="0.1" max="2" step="0.1" value="1">
-    <button id="confirm-placement">Confirm Placement</button>
-  </div>
-
-  <!-- Three.js scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/three@latest/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="script.js"></script>
+    <div id="ar-overlay"></div>
+    <div id="furniture-gallery"></div>
+    <script type="module" src="/app.js"></script>
 </body>
-</html>
+</html> 
