@@ -54,6 +54,12 @@ class ARFurnitureViewer {
         "./thumbnails/chair.png",
         { x: 0, y: 0, z: 0 }
       ),
+      new FurnitureItem(
+        "Flowers",
+        "./models/flowers.glb",
+        "./thumbnails/flowers.png",
+        { x: 0, y: 0, z: 0 }
+      ),
     ];
 
     this.placedFurniture = [];
@@ -62,6 +68,21 @@ class ARFurnitureViewer {
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
+
+    this.isShiftDown = false; // Add this to track shift key state
+
+    // Add shift key listeners
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Shift") {
+        this.isShiftDown = true;
+      }
+    });
+
+    window.addEventListener("keyup", (event) => {
+      if (event.key === "Shift") {
+        this.isShiftDown = false;
+      }
+    });
 
     this.init();
   }
@@ -246,6 +267,7 @@ class ARFurnitureViewer {
           "sofa.glb": { width: 2.0, height: 0.9, depth: 0.9 },
           "table.glb": { width: 1.6, height: 0.75, depth: 0.9 },
           "chair.glb": { width: 1.8, height: 1, depth: 1.2 },
+          "flowers.glb": { width: 0.3, height: 0.4, depth: 0.3 }, // Typical size for a flower vase
         };
 
         const filename = furniturePath.split("/").pop();
@@ -325,6 +347,11 @@ class ARFurnitureViewer {
         this.selectedFurniture = furniture;
         dragPlane.constant = -furniture.position.y;
         document.body.style.cursor = "grabbing";
+
+        // Disable orbit controls if shift is held
+        if (this.isShiftDown) {
+          this.controls.enabled = false;
+        }
       }
     };
 
@@ -336,14 +363,23 @@ class ARFurnitureViewer {
 
       raycaster.setFromCamera(mouse, this.camera);
       if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
-        furniture.position.x = intersectionPoint.x;
-        furniture.position.z = intersectionPoint.z;
+        if (this.isShiftDown) {
+          // Free movement in X and Z when holding shift
+          furniture.position.x = intersectionPoint.x;
+          furniture.position.z = intersectionPoint.z;
+        } else {
+          // Normal dragging behavior
+          furniture.position.x = intersectionPoint.x;
+          furniture.position.z = intersectionPoint.z;
+        }
       }
     };
 
     const onMouseUp = () => {
       isDragging = false;
       document.body.style.cursor = "default";
+      // Re-enable orbit controls
+      this.controls.enabled = true;
     };
 
     const onKeyDown = (event) => {
@@ -355,6 +391,7 @@ class ARFurnitureViewer {
           );
           this.selectedFurniture = null;
 
+          // Clean up all event listeners
           window.removeEventListener("mousedown", onMouseDown);
           window.removeEventListener("mousemove", onMouseMove);
           window.removeEventListener("mouseup", onMouseUp);
