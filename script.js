@@ -40,6 +40,30 @@ function init() {
   animate();
 }
 
+function loadRoomModel() {
+  const loader = new THREE.GLTFLoader();
+
+  // Path to your scanned .glb file (inside the "models" folder)
+  loader.load(
+    'models/room.glb',
+    function (gltf) {
+      const roomScene = gltf.scene;
+      // Optionally, scale/position the model
+      roomScene.scale.set(1, 1, 1); 
+      // Add room to scene
+      scene.add(roomScene);
+    },
+    // onProgress callback
+    function (xhr) {
+      console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+    },
+    // onError callback
+    function (error) {
+      console.error('An error occurred while loading the 3D model', error);
+    }
+  );
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
