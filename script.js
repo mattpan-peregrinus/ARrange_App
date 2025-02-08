@@ -80,12 +80,12 @@ function addFurniture(modelPath) {
     
     // Example scaling or adjustments
     furnitureToPlace.scale.set(0.5, 0.5, 0.5);
-    console.log('Furniture loaded, click on the floor to place it.');
+    console.log(`${modelPath} loaded, ready to place.`);
     
   }, 
   undefined, 
   (error) => {
-    console.error('Error loading furniture model:', error);
+    console.error(`Error loading model from ${modelPath}:`, error);
   });
 }
 
