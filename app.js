@@ -33,31 +33,25 @@ class ARFurnitureViewer {
       new FurnitureItem(
         "Modern Bookshelf",
         "./models/bookshelf.glb",
-        "./thumbnails/bookshelf.png",
-        { x: 0, y: 0, z: 0 }
-      ),
-      new FurnitureItem(
-        "Modern Sofa",
-        "./models/sofa.glb",
-        "./thumbnails/sofa.png",
+        "./thumbnails/bookshelf.jpg",
         { x: 0, y: 0, z: 0 }
       ),
       new FurnitureItem(
         "Dining Table",
         "./models/table.glb",
-        "./thumbnails/table.png",
+        "./thumbnails/table.jpg",
         { x: 0, y: 0, z: 0 }
       ),
       new FurnitureItem(
         "Chair",
         "./models/chair.glb",
-        "./thumbnails/chair.png",
+        "./thumbnails/chair.jpg",
         { x: 0, y: 0, z: 0 }
       ),
       new FurnitureItem(
         "Flowers",
         "./models/flowers.glb",
-        "./thumbnails/flowers.png",
+        "./thumbnails/flowers.jpg",
         { x: 0, y: 0, z: 0 }
       ),
     ];
@@ -95,11 +89,29 @@ class ARFurnitureViewer {
     // Add background color to make scene visible
     this.scene.background = new THREE.Color(0xf0f0f0);
 
-    // Add better lighting for reflections
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(5, 5, 5);
-    directionalLight.castShadow = true;
+    // Enhanced lighting setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increased intensity
+
+    // Main directional light (sun-like)
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    mainLight.position.set(5, 5, 5);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 2048;
+    mainLight.shadow.mapSize.height = 2048;
+
+    // Fill light from opposite direction
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    fillLight.position.set(-5, 3, -5);
+
+    // Add some point lights for more dynamic lighting
+    const pointLight1 = new THREE.PointLight(0xffffff, 0.5);
+    pointLight1.position.set(0, 4, 0);
+
+    const pointLight2 = new THREE.PointLight(0xffffff, 0.3);
+    pointLight2.position.set(5, 2, -5);
+
+    const pointLight3 = new THREE.PointLight(0xffffff, 0.3);
+    pointLight3.position.set(-5, 2, 5);
 
     // Optional: Add environment map for better reflections
     const envMapTexture = new THREE.CubeTextureLoader().load([
@@ -112,15 +124,23 @@ class ARFurnitureViewer {
     ]);
     this.scene.environment = envMapTexture;
 
-    this.scene.add(ambientLight, directionalLight);
+    // Add all lights to the scene
+    this.scene.add(
+      ambientLight,
+      mainLight,
+      fillLight,
+      pointLight1,
+      pointLight2,
+      pointLight3
+    );
 
-    // Enable shadow mapping in renderer
+    // Adjust renderer settings for better lighting
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.physicallyCorrectLights = true;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 1.2; // Increased exposure
 
     // Setup camera - move it back further
     this.camera.position.set(0, 2, 10);
@@ -286,28 +306,32 @@ class ARFurnitureViewer {
             // Clone the material to avoid affecting other instances
             child.material = child.material.clone();
 
-            // Set different material properties based on furniture type
-            if (filename === "table.glb") {
-              child.material.roughness = 0.9; // More matte finish
-              child.material.metalness = 0.1; // Less metallic
-              child.material.envMapIntensity = 0.5; // Less reflective
-              // Lighten the material color
-              if (child.material.color) {
-                const color = child.material.color;
-                color.r = Math.min(color.r * 1.2, 1);
-                color.g = Math.min(color.g * 1.2, 1);
-                color.b = Math.min(color.b * 1.2, 1);
-              }
-            } else {
-              // Default properties for other furniture
-              child.material.roughness = 0.8;
-              child.material.metalness = 0.2;
-              child.material.envMapIntensity = 1.0;
-            }
+            if (filename === "bookshelf.glb") {
+              // Special handling for bookshelf
+              child.material.roughness = 0.7; // More realistic wood texture
+              child.material.metalness = 0.1; // Slight metallic for varnished look
+              child.material.envMapIntensity = 0.8; // Subtle reflections
 
-            // Enable shadows
-            child.castShadow = true;
-            child.receiveShadow = true;
+              // Darken the color for more realistic wood
+              if (child.material.color) {
+                const currentColor = child.material.color;
+                currentColor.multiplyScalar(0.7); // Darken by 30%
+              }
+
+              // Enhance shadow properties
+              child.castShadow = true;
+              child.receiveShadow = true;
+              child.material.shadowBias = -0.001;
+              child.material.dithering = true;
+            } else {
+              // Default handling for other furniture
+              if (child.material.color) {
+                const currentColor = child.material.color;
+                currentColor.lerp(new THREE.Color(1, 1, 1), 0.3);
+              }
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
           }
         });
 
@@ -316,8 +340,7 @@ class ARFurnitureViewer {
         const size = bbox.getSize(new THREE.Vector3());
 
         const standardSizes = {
-          "bookshelf.glb": { width: 0.8, height: 2.0, depth: 0.4 },
-          "sofa.glb": { width: 2.0, height: 0.9, depth: 0.9 },
+          "bookshelf.glb": { width: 0.8, height: 2.0, depth: 2 },
           "table.glb": { width: 1.6, height: 1, depth: 1.2 },
           "chair.glb": { width: 1.8, height: 1, depth: 0.7 },
           "flowers.glb": { width: 0.3, height: 0.4, depth: 0.3 }, // Typical size for a flower vase
