@@ -65,6 +65,41 @@ class ARFurnitureViewer {
 
     this.isShiftDown = false; // Add this to track shift key state
 
+    this.selectionBox = null; // Add this to track the selection outline
+    this.outlineMaterial = new THREE.LineBasicMaterial({
+      color: 0x00ff00, // Green outline
+      linewidth: 2,
+    });
+
+    // Add rotation amount in radians
+    this.rotationAmount = Math.PI / 32; // 11.25 degrees
+
+    // Add keyboard handler for rotation
+    window.addEventListener("keydown", (event) => {
+      if (this.selectedFurniture) {
+        switch (event.key) {
+          case "ArrowLeft":
+            this.selectedFurniture.rotation.y += this.rotationAmount;
+            // Update selection box rotation
+            if (this.selectionBox) {
+              this.selectionBox.quaternion.copy(
+                this.selectedFurniture.quaternion
+              );
+            }
+            break;
+          case "ArrowRight":
+            this.selectedFurniture.rotation.y -= this.rotationAmount;
+            // Update selection box rotation
+            if (this.selectionBox) {
+              this.selectionBox.quaternion.copy(
+                this.selectedFurniture.quaternion
+              );
+            }
+            break;
+        }
+      }
+    });
+
     // Add shift key listeners
     window.addEventListener("keydown", (event) => {
       if (event.key === "Shift") {
@@ -423,6 +458,9 @@ class ARFurnitureViewer {
         dragPlane.constant = -furniture.position.y;
         document.body.style.cursor = "grabbing";
 
+        // Add selection box when furniture is clicked
+        this.updateSelectionBox(furniture);
+
         // Disable orbit controls if shift is held
         if (this.isShiftDown) {
           this.controls.enabled = false;
@@ -438,14 +476,14 @@ class ARFurnitureViewer {
 
       raycaster.setFromCamera(mouse, this.camera);
       if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
-        if (this.isShiftDown) {
-          // Free movement in X and Z when holding shift
-          furniture.position.x = intersectionPoint.x;
-          furniture.position.z = intersectionPoint.z;
-        } else {
-          // Normal dragging behavior
-          furniture.position.x = intersectionPoint.x;
-          furniture.position.z = intersectionPoint.z;
+        furniture.position.x = intersectionPoint.x;
+        furniture.position.z = intersectionPoint.z;
+
+        // Update selection box position while dragging
+        if (this.selectionBox) {
+          const bbox = new THREE.Box3().setFromObject(furniture);
+          const center = bbox.getCenter(new THREE.Vector3());
+          this.selectionBox.position.copy(center);
         }
       }
     };
@@ -453,7 +491,6 @@ class ARFurnitureViewer {
     const onMouseUp = () => {
       isDragging = false;
       document.body.style.cursor = "default";
-      // Re-enable orbit controls
       this.controls.enabled = true;
     };
 
@@ -465,6 +502,8 @@ class ARFurnitureViewer {
             (f) => f !== furniture
           );
           this.selectedFurniture = null;
+          // Remove selection box when furniture is deleted
+          this.updateSelectionBox(null);
 
           // Clean up all event listeners
           window.removeEventListener("mousedown", onMouseDown);
@@ -474,6 +513,21 @@ class ARFurnitureViewer {
         }
       }
     };
+
+    // Add click handler for deselection
+    window.addEventListener("mousedown", (event) => {
+      // Check if click is not on any furniture
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, this.camera);
+      const intersects = raycaster.intersectObjects(this.placedFurniture, true);
+
+      if (intersects.length === 0) {
+        // Click was on empty space, remove selection
+        this.selectedFurniture = null;
+        this.updateSelectionBox(null);
+      }
+    });
 
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
@@ -491,6 +545,32 @@ class ARFurnitureViewer {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // Add this new method to create/update selection outline
+  updateSelectionBox(furniture) {
+    // Remove existing selection box if it exists
+    if (this.selectionBox) {
+      this.scene.remove(this.selectionBox);
+    }
+
+    if (furniture) {
+      // Create a new bounding box
+      const bbox = new THREE.Box3().setFromObject(furniture);
+      const size = bbox.getSize(new THREE.Vector3());
+      const center = bbox.getCenter(new THREE.Vector3());
+
+      // Create wireframe geometry
+      const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+      const edges = new THREE.EdgesGeometry(geometry);
+      this.selectionBox = new THREE.LineSegments(edges, this.outlineMaterial);
+
+      // Position the box at the furniture's position
+      this.selectionBox.position.copy(center);
+      this.selectionBox.quaternion.copy(furniture.quaternion);
+
+      this.scene.add(this.selectionBox);
+    }
   }
 }
 
