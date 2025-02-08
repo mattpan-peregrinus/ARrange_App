@@ -95,11 +95,32 @@ class ARFurnitureViewer {
     // Add background color to make scene visible
     this.scene.background = new THREE.Color(0xf0f0f0);
 
-    // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Add better lighting for reflections
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(5, 5, 5);
+    directionalLight.castShadow = true;
+
+    // Optional: Add environment map for better reflections
+    const envMapTexture = new THREE.CubeTextureLoader().load([
+      "textures/env/px.jpg",
+      "textures/env/nx.jpg",
+      "textures/env/py.jpg",
+      "textures/env/ny.jpg",
+      "textures/env/pz.jpg",
+      "textures/env/nz.jpg",
+    ]);
+    this.scene.environment = envMapTexture;
+
     this.scene.add(ambientLight, directionalLight);
+
+    // Enable shadow mapping in renderer
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.physicallyCorrectLights = true;
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
 
     // Setup camera - move it back further
     this.camera.position.set(0, 2, 10);
@@ -257,6 +278,38 @@ class ARFurnitureViewer {
       furniturePath,
       (gltf) => {
         const furniture = gltf.scene;
+        const filename = furniturePath.split("/").pop();
+
+        // Add material modification
+        furniture.traverse((child) => {
+          if (child.isMesh) {
+            // Clone the material to avoid affecting other instances
+            child.material = child.material.clone();
+
+            // Set different material properties based on furniture type
+            if (filename === "table.glb") {
+              child.material.roughness = 0.9; // More matte finish
+              child.material.metalness = 0.1; // Less metallic
+              child.material.envMapIntensity = 0.5; // Less reflective
+              // Lighten the material color
+              if (child.material.color) {
+                const color = child.material.color;
+                color.r = Math.min(color.r * 1.2, 1);
+                color.g = Math.min(color.g * 1.2, 1);
+                color.b = Math.min(color.b * 1.2, 1);
+              }
+            } else {
+              // Default properties for other furniture
+              child.material.roughness = 0.8;
+              child.material.metalness = 0.2;
+              child.material.envMapIntensity = 1.0;
+            }
+
+            // Enable shadows
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
 
         // Scale furniture as before
         const bbox = new THREE.Box3().setFromObject(furniture);
@@ -265,12 +318,11 @@ class ARFurnitureViewer {
         const standardSizes = {
           "bookshelf.glb": { width: 0.8, height: 2.0, depth: 0.4 },
           "sofa.glb": { width: 2.0, height: 0.9, depth: 0.9 },
-          "table.glb": { width: 1.6, height: 0.75, depth: 0.9 },
-          "chair.glb": { width: 1.8, height: 1, depth: 1.2 },
+          "table.glb": { width: 1.6, height: 1, depth: 1.2 },
+          "chair.glb": { width: 1.8, height: 1, depth: 0.7 },
           "flowers.glb": { width: 0.3, height: 0.4, depth: 0.3 }, // Typical size for a flower vase
         };
 
-        const filename = furniturePath.split("/").pop();
         const standardSize = standardSizes[filename] || {
           width: 1,
           height: 1,
