@@ -78,16 +78,14 @@ function addFurniture(modelPath) {
   loader.load(modelPath, (gltf) => {
     furnitureToPlace = gltf.scene;
     
-    // Example scaling or adjustments
     furnitureToPlace.scale.set(0.5, 0.5, 0.5);
     console.log(`${modelPath} loaded, ready to place.`);
-    
   }, 
   undefined, 
   (error) => {
     console.error(`Error loading model from ${modelPath}:`, error);
   });
-}
+} 
 
 // Raycasting handler for placing furniture on a click
 function onDocumentClick(event) {
