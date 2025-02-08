@@ -56,6 +56,7 @@ class ARFurnitureViewer {
       ),
     ];
 
+    this.placedFurniture = [];
     this.selectedFurniture = null;
 
     this.raycaster = new THREE.Raycaster();
@@ -168,7 +169,7 @@ class ARFurnitureViewer {
 
       // Get all objects in the scene except the currently selected furniture
       const objects = this.scene.children.filter(
-        (obj) => obj !== this.selectedFurniture && obj.type === "Group" // GLTFLoader loads models as Groups
+        (obj) => obj.type === "Group" && !this.placedFurniture.includes(obj)
       );
 
       const intersects = this.raycaster.intersectObjects(objects, true);
@@ -176,15 +177,10 @@ class ARFurnitureViewer {
       if (intersects.length > 0) {
         const intersection = intersects[0];
         const normal = intersection.face.normal.clone();
-        // Transform the normal from local space to world space
         normal.transformDirection(intersection.object.matrixWorld);
-
-        // Determine if this is a wall (vertical) or floor (horizontal)
         const isWall = Math.abs(normal.y) < 0.5;
-
         const position = intersection.point;
 
-        // Load the furniture with alignment information
         this.loadFurniture(modelPath, {
           position: position,
           normal: normal,
@@ -236,10 +232,6 @@ class ARFurnitureViewer {
       isWall: false,
     }
   ) {
-    if (this.selectedFurniture) {
-      this.scene.remove(this.selectedFurniture);
-    }
-
     this.loader.load(
       furniturePath,
       (gltf) => {
@@ -253,7 +245,7 @@ class ARFurnitureViewer {
           "bookshelf.glb": { width: 0.8, height: 2.0, depth: 0.4 },
           "sofa.glb": { width: 2.0, height: 0.9, depth: 0.9 },
           "table.glb": { width: 1.6, height: 0.75, depth: 0.9 },
-          "chair.glb": { width: 0.5, height: 0.9, depth: 0.5 },
+          "chair.glb": { width: 1.8, height: 1, depth: 1.2 },
         };
 
         const filename = furniturePath.split("/").pop();
@@ -298,6 +290,7 @@ class ARFurnitureViewer {
         }
 
         this.scene.add(furniture);
+        this.placedFurniture.push(furniture);
         this.selectedFurniture = furniture;
         this.setupFurnitureDrag(furniture);
       },
@@ -317,7 +310,7 @@ class ARFurnitureViewer {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let isDragging = false;
-    let dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0)); // horizontal plane
+    let dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
     let intersectionPoint = new THREE.Vector3();
 
     const onMouseDown = (event) => {
@@ -329,7 +322,7 @@ class ARFurnitureViewer {
 
       if (intersects.length > 0) {
         isDragging = true;
-        // Create a plane at the furniture's height
+        this.selectedFurniture = furniture;
         dragPlane.constant = -furniture.position.y;
         document.body.style.cursor = "grabbing";
       }
@@ -353,9 +346,27 @@ class ARFurnitureViewer {
       document.body.style.cursor = "default";
     };
 
+    const onKeyDown = (event) => {
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (this.selectedFurniture === furniture) {
+          this.scene.remove(furniture);
+          this.placedFurniture = this.placedFurniture.filter(
+            (f) => f !== furniture
+          );
+          this.selectedFurniture = null;
+
+          window.removeEventListener("mousedown", onMouseDown);
+          window.removeEventListener("mousemove", onMouseMove);
+          window.removeEventListener("mouseup", onMouseUp);
+          window.removeEventListener("keydown", onKeyDown);
+        }
+      }
+    };
+
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("keydown", onKeyDown);
   }
 
   animate() {
