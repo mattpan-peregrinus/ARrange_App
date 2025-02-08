@@ -36,28 +36,31 @@ class ARFurnitureViewer {
         "./thumbnails/bookshelf.png",
         { x: 0, y: 0, z: 0 }
       ),
-      // this.furnitureItems = [
-      //   new FurnitureItem(
-      //     "Modern Sofa",
-      //     "./models/sofa.glb",
-      //     "./thumbnails/sofa.png",
-      //     { x: 0, y: 0, z: 0 }
-      //   ),
-      //   new FurnitureItem(
-      //     "Dining Table",
-      //     "./models/table.glb",
-      //     "./thumbnails/table.png",
-      //     { x: 0, y: 0, z: 0 }
-      //   ),
-      //   new FurnitureItem(
-      //     "Chair",
-      //     "./models/chair.glb",
-      //     "./thumbnails/chair.png",
-      //     { x: 0, y: 0, z: 0 }
-      //   ),
+      new FurnitureItem(
+        "Modern Sofa",
+        "./models/sofa.glb",
+        "./thumbnails/sofa.png",
+        { x: 0, y: 0, z: 0 }
+      ),
+      new FurnitureItem(
+        "Dining Table",
+        "./models/table.glb",
+        "./thumbnails/table.png",
+        { x: 0, y: 0, z: 0 }
+      ),
+      new FurnitureItem(
+        "Chair",
+        "./models/chair.glb",
+        "./thumbnails/chair.png",
+        { x: 0, y: 0, z: 0 }
+      ),
     ];
 
     this.selectedFurniture = null;
+
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+    this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
 
     this.init();
   }
@@ -88,28 +91,83 @@ class ARFurnitureViewer {
 
     this.setupFurnitureGallery();
 
+    // Add drag and drop event listeners
+    this.setupDragAndDrop();
+
     // Start animation loop
     this.animate();
   }
 
   loadRoomScan() {
-    // Create a ground plane instead of loading a room
-    const groundGeometry = new THREE.PlaneGeometry(10, 10);
-    const groundMaterial = new THREE.MeshPhongMaterial({
-      color: 0x999999,
-      side: THREE.DoubleSide,
-    });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    this.scene.add(ground);
-
-    // Uncomment this when you have a room.glb file
-    /*
+    // Remove the ground plane code and load the room model instead
     this.loader.load(
-        "./models/room.glb",
-        ...
+      "./models/room.glb",
+      (gltf) => {
+        const room = gltf.scene;
+        this.scene.add(room);
+        console.log("Room loaded successfully");
+
+        // Update the drag plane to match the room's floor
+        // Assuming the room model's floor is at y=0
+        this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      },
+      (progress) => {
+        console.log(
+          "Loading room:",
+          (progress.loaded / progress.total) * 100 + "%"
+        );
+      },
+      (error) => {
+        console.error("Error loading room:", error);
+        console.error("Error details:", {
+          message: error.message,
+          type: error.type,
+          url: "./models/room.glb",
+        });
+
+        // Fallback to a ground plane if room loading fails
+        console.log("Creating fallback ground plane...");
+        const groundGeometry = new THREE.PlaneGeometry(10, 10);
+        const groundMaterial = new THREE.MeshPhongMaterial({
+          color: 0x999999,
+          side: THREE.DoubleSide,
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        this.scene.add(ground);
+      }
     );
-    */
+  }
+
+  setupDragAndDrop() {
+    const overlay = document.getElementById("ar-overlay");
+
+    overlay.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    });
+
+    overlay.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const modelPath = event.dataTransfer.getData("model");
+
+      // Calculate drop position in 3D space
+      this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersectionPoint = new THREE.Vector3();
+
+      if (
+        this.raycaster.ray.intersectPlane(this.dragPlane, intersectionPoint)
+      ) {
+        this.loadFurniture(modelPath, {
+          x: intersectionPoint.x,
+          y: 0,
+          z: intersectionPoint.z,
+        });
+      }
+    });
   }
 
   setupFurnitureGallery() {
@@ -118,12 +176,26 @@ class ARFurnitureViewer {
     this.furnitureItems.forEach((item) => {
       const itemElement = document.createElement("div");
       itemElement.className = "furniture-item";
+      itemElement.draggable = true;
 
       itemElement.innerHTML = `
-                <img src="${item.thumbnailPath}" alt="${item.name}">
-                <h3>${item.name}</h3>
-            `;
+        <img src="${item.thumbnailPath}" alt="${item.name}">
+        <h3>${item.name}</h3>
+      `;
 
+      // Add drag start event
+      itemElement.addEventListener("dragstart", (event) => {
+        event.dataTransfer.setData("model", item.modelPath);
+        event.dataTransfer.effectAllowed = "move";
+        itemElement.classList.add("dragging");
+      });
+
+      // Add drag end event
+      itemElement.addEventListener("dragend", () => {
+        itemElement.classList.remove("dragging");
+      });
+
+      // Keep the click event for backward compatibility
       itemElement.addEventListener("click", () => {
         this.loadFurniture(item.modelPath, item.defaultPosition);
       });
